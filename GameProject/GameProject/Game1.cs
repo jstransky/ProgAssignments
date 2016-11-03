@@ -88,18 +88,26 @@ namespace GameProject
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
+
             //load burger
             burger = new Burger(Content, @"graphics\burger", GameConstants.WindowWidth / 2, GameConstants.WindowHeight * 7 / 8, null);
 
-            //load bear
-            SpawnBear();
+            //load bears
+            for (int i = GameConstants.MaxBears; i >= 0; i--)
+            {
+                SpawnBear();
+            }
 
             // load audio content
 
             // load sprite font
 
-            // load projectile and explosion sprites
-
+            // load projectile, frenchfries and explosion sprites
+            teddyBearProjectileSprite = Content.Load<Texture2D> ( @"graphics\teddybearprojectile");
+            frenchFriesSprite = Content.Load<Texture2D>(@"graphics\frenchfries");
+            explosionSpriteStrip = Content.Load<Texture2D>(@"graphics\explosion");
+            
+            
             // add initial game objects
 
             // set initial health and score strings
@@ -125,6 +133,8 @@ namespace GameProject
                 Exit();
 
             // get current mouse state and update burger
+            MouseState mouse = Mouse.GetState();
+            burger.Update(gameTime, mouse);
 
             // update other game objects
             foreach (TeddyBear bear in bears)
@@ -141,18 +151,97 @@ namespace GameProject
             }
 
             // check and resolve collisions between teddy bears
+            for (int i = 0; i < bears.Count; i++)
+            {
+                for (int j = i + 1; j < bears.Count; j++)
+                {
+                    if (bears[i].Active && bears[j].Active)
+                    {
+                        // collision variable
+                        var collision = CollisionUtils.CheckCollision(gameTime.ElapsedGameTime.Milliseconds, GameConstants.WindowWidth,
+                            GameConstants.WindowHeight, bears[i].Velocity, bears[i].DrawRectangle, bears[j].Velocity, bears[j].DrawRectangle);
+                        if (collision != null)
+                        {
+
+                            // first bear collision resolution
+                            if (collision.FirstOutOfBounds)
+                            {
+                                bears[i].Active = false;
+                            }
+                            else if (!collision.FirstOutOfBounds)
+                            {
+                                bears[i].Velocity = collision.FirstVelocity;
+                                bears[i].DrawRectangle = collision.FirstDrawRectangle;
+                            }
+
+                            // second bear collision resolution
+                            if (collision.SecondOutOfBounds)
+                            {
+                                bears[j].Active = false;
+                            }
+                            else if (!collision.SecondOutOfBounds)
+                            {
+                                bears[j].Velocity = collision.SecondVelocity;
+                                bears[j].DrawRectangle = collision.SecondDrawRectangle;
+                            }
+                        }
+                    }
+                }
+            }
 
             // check and resolve collisions between burger and teddy bears
 
+            // check and resolve collisions between teddy bear and projectiles and explode
+            foreach (TeddyBear bear in bears)
+            {
+                foreach (Projectile projectile in projectiles)
+                {
+                    if (projectile.Type == ProjectileType.FrenchFries)
+                    {
+                        if (projectile.Active && bear.Active)
+                        {
+                            if (projectile.CollisionRectangle.Intersects(bear.CollisionRectangle))
+                            {
+                                // make bear and projectile inactive for cleanup
+                                bear.Active = false;
+                                projectile.Active = false;
+
+                                // explode
+                                explosions.Add(new Explosion(explosionSpriteStrip, bear.Location.X, bear.Location.Y));
+                            }
+                        }
+                    }
+                }
+            }
+
             // check and resolve collisions between burger and projectiles
 
-            // check and resolve collisions between teddy bears and projectiles
-
             // clean out inactive teddy bears and add new ones as necessary
+            for (int i = bears.Count - 1; i>=0; i--)
+            {
+                if (!bears[i].Active)
+                {
+                    bears.RemoveAt(i);
+                }
+            }
 
             // clean out inactive projectiles
+            for (int j = projectiles.Count - 1; j >= 0; j--)
+            {
+                if (!projectiles[j].Active)
+                {
+                    projectiles.RemoveAt(j);
+                }
+            }
 
             // clean out finished explosions
+            for (int k = explosions.Count - 1; k >= 0; k--)
+            {
+                if (explosions[k].Finished)
+                {
+                    explosions.RemoveAt(k);
+                }
+            }
 
             base.Update(gameTime);
         }
@@ -199,7 +288,15 @@ namespace GameProject
         public static Texture2D GetProjectileSprite(ProjectileType type)
         {
             // replace with code to return correct projectile sprite based on projectile type
-            return frenchFriesSprite;
+
+            if (type == ProjectileType.FrenchFries)
+            {
+                return frenchFriesSprite;
+            }
+            else 
+            {
+                return teddyBearProjectileSprite;
+            }
         }
 
         /// <summary>
@@ -208,7 +305,7 @@ namespace GameProject
         /// <param name="projectile">the projectile to add</param>
         public static void AddProjectile(Projectile projectile)
         {
-
+            projectiles.Add(projectile);
         }
 
         #endregion
